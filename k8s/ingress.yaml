@@ -1,0 +1,38 @@
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: webserver-ing-traefik
+#   namespace: webserver
+# spec:
+#   ingressClassName: traefik
+#   rules:
+#   - host: wimokn.dev
+#     http:
+#       paths:
+#       - backend:
+#           service:
+#             name: webserver-front
+#             port:
+#               name: http
+#         path: /
+#         pathType: Prefix
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: catbot-ingress
+  namespace: catbot
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    #traefik.ingress.kubernetes.io/router.entrypoints: web, websecure
+spec:
+  #entryPoints:
+  #  - websecure
+  routes:
+    - kind: Rule
+      match: Host(`bot.dreamyard.dev`) && PathPrefix(`/callback`)
+      services:
+        - kind: Service
+          name: catbot-svc
+          namespace: catbot
+          port: 80

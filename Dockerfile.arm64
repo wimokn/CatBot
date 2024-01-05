@@ -1,0 +1,23 @@
+FROM arm64v8/golang:latest AS build
+
+ENV GOOS=linux \
+    GOARCH=arm64 \
+    CGO_ENABLED=0
+    
+WORKDIR /src
+ADD . /src
+RUN go build -trimpath -mod vendor -o main .
+
+# ================
+FROM arm64v8/alpine:3.19
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Bangkok
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+WORKDIR /
+
+COPY --from=build /src/main /main
+COPY --from=build /src/.env /.env
+
+EXPOSE 80
+
+ENTRYPOINT ["/main"]

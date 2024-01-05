@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catbot
+  namespace: catbot
+  labels:
+    app: catbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      pod-label: catbot-pod
+  template:
+    metadata:
+      labels:
+        pod-label: catbot-pod
+    spec:
+      containers:
+        - name: catbot
+          image: registry.dreamyard.dev/app/bot/catbot:prod-1.0.0
+          imagePullPolicy: IfNotPresent #  Never # IfNotPresent
+          env:
+            - name: CHANNEL_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bot-secret
+                  key: channel_secret
+            - name: CHANNEL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bot-secret
+                  key: channel_access_token
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bot-secret
+                  key: openai_api_key
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+      #dnsPolicy: ClusterFirst
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catbot-svc
+  namespace: catbot
+  labels:
+    app: catbot
+spec:
+  selector:
+    pod-label: catbot-pod
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      name: http
