@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: catbot
-          image: registry.dreamyard.dev/app/bot/catbot:prod-1.0.0
+          image: registry.dreamyard.dev/app/bot/catbot:prod-1.0.5
           imagePullPolicy: IfNotPresent #  Never # IfNotPresent
           env:
             - name: CHANNEL_SECRET
@@ -35,6 +35,46 @@ spec:
                 secretKeyRef:
                   name: bot-secret
                   key: openai_api_key
+            - name: PHOTOPRISM_USER
+              valueFrom:
+                secretKeyRef:
+                  name: bot-secret
+                  key: p_user
+            - name: PHOTOPRISM_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: bot-secret
+                  key: p_pass
+            - name: MAX_TOKENS
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-configs
+                  key: MAX_TOKENS
+            - name: TEMPERATURE
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-configs
+                  key: TEMPERATURE
+            - name: TOP_P
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-configs
+                  key: TOP_P
+            - name: PRESENCE_PENALTY
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-configs
+                  key: PRESENCE_PENALTY
+            - name: FREQUENCY_PENALTY
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-configs
+                  key: FREQUENCY_PENALTY
+            - name: GPT_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-configs
+                  key: GPT_NAME
           ports:
             - name: http
               containerPort: 80

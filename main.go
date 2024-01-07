@@ -1,18 +1,20 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	photoprism "github.com/kris-nova/photoprism-client-go"
+	"github.com/kris-nova/photoprism-client-go/api/v1"
 	"github.com/line/line-bot-sdk-go/v8/linebot"
-	openai "github.com/sashabaranov/go-openai"
 )
 
 // linebot client ptr
@@ -21,6 +23,8 @@ var bot *linebot.Client
 // OpenAI Api key
 var OpenAIApiKey string
 var GPTName string
+var PUser string
+var PPass string
 
 // CompletionModelParam
 var MaxTokens int
@@ -32,8 +36,10 @@ var ErrEnvVarEmpty = errors.New("getenv: environment variable empty")
 
 func main() {
 	var err error
+	PUser = os.Getenv("PHOTOPRISM_USER")
+	PPass = os.Getenv("PHOTOPRISM_PASS")
 	OpenAIApiKey = os.Getenv("OPENAI_API_KEY")
-	GPTName = os.Getenv("GPTName")
+	GPTName = os.Getenv("GPT_NAME")
 	GetModelParamFromEnv()
 	bot, err = linebot.New(os.Getenv("CHANNEL_SECRET"), os.Getenv("CHANNEL_ACCESS_TOKEN"))
 	log.Println("Bot:", bot, " err:", err)
@@ -43,26 +49,64 @@ func main() {
 	http.ListenAndServe(addr, nil)
 }
 
+func GetImageResponse(question string) string {
+	client := photoprism.New("https://photoprism.dreamyard.dev")
+	err := client.Auth(photoprism.NewClientAuthLogin(PUser, PPass))
+	if err != nil {
+		return "The Cat Is Missing"
+	}
+
+	keywords := "cat & " + question
+
+	options := api.PhotoOptions{
+		Count: 10,
+		//AlbumUID:
+		Filter: keywords,
+	}
+
+	result, err := client.V1().GetPhotos(&options)
+	if err != nil {
+		return "The Cat Is Missing"
+	}
+
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r1 := rand.New(s1)
+	rnd := r1.Intn(len(result))
+
+	uuid := result[rnd].PhotoUID
+
+	// ---
+	// GetPhoto()
+	//
+	photo, err := client.V1().GetPhoto(uuid)
+	if err != nil {
+		return "The Cat Is Missing"
+	}
+
+	answer := "https://photoprism.dreamyard.dev/api/v1/t/" + photo.Files[0].FileHash + "/2qoiyfaq/fit_4096"
+	return answer
+}
+
 func GetModelParamFromEnv() {
 	var err error
-	if MaxTokens, err = getenvInt("max_tokens"); err != nil {
-		log.Println("max_tokens", err)
+	if MaxTokens, err = getenvInt("MAX_TOKENS"); err != nil {
+		log.Println("MAX_TOKENS", err)
 		err = nil
 	}
-	if Temperature, err = getenvFloat("temperature"); err != nil {
-		log.Println("temperature", err)
+	if Temperature, err = getenvFloat("TEMPERATURE"); err != nil {
+		log.Println("TEMPERATURE", err)
 		err = nil
 	}
-	if TopP, err = getenvFloat("top_p"); err != nil {
-		log.Println("top_p", err)
+	if TopP, err = getenvFloat("TOP_P"); err != nil {
+		log.Println("TOP_P", err)
 		err = nil
 	}
-	if FrequencyPenalty, err = getenvFloat("FrequencyPenalty"); err != nil {
-		log.Println("FrequencyPenalty", err)
+	if FrequencyPenalty, err = getenvFloat("PRESENCE_PENALTY"); err != nil {
+		log.Println("PRESENCE_PENALTY", err)
 		err = nil
 	}
-	if PresencePenalty, err = getenvFloat("PresencePenalty"); err != nil {
-		log.Println("PresencePenalty", err)
+	if PresencePenalty, err = getenvFloat("FREQUENCY_PENALTY"); err != nil {
+		log.Println("FREQUENCY_PENALTY", err)
 		err = nil
 	}
 }
@@ -100,55 +144,6 @@ func getenvFloat(key string) (float32, error) {
 	return float32(v), nil
 }
 
-func GetResponse(client *openai.Client, ctx context.Context, question string) string {
-	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: openai.GPT4,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: "You are a powerful AI assistant with a rich reserve of knowledge and an answer to all questions.",
-			},
-			{
-				Role:    "user",
-				Content: question,
-			},
-		},
-		MaxTokens:        MaxTokens,
-		Temperature:      Temperature,
-		TopP:             TopP,
-		FrequencyPenalty: FrequencyPenalty,
-		PresencePenalty:  PresencePenalty,
-	})
-
-	if err != nil {
-		errString := fmt.Sprintf("Get Open AI Response Error: %s", err)
-		log.Println(errString)
-		return errString
-	}
-	answer := resp.Choices[0].Message.Content
-	answer = strings.TrimSpace(answer)
-	return answer
-}
-
-func GetImageResponse(client *openai.Client, ctx context.Context, question string) string {
-	resp, err := client.CreateImage(ctx, openai.ImageRequest{
-		Prompt:         question,
-		Size:           openai.CreateImageSize256x256,
-		ResponseFormat: openai.CreateImageResponseFormatURL,
-		N:              1,
-	},
-	)
-
-	if err != nil {
-		errString := fmt.Sprintf("Image creation error: %s", err)
-		log.Println("Image creation error: ", err)
-		return errString
-	}
-
-	answer := resp.Data[0].URL
-	return answer
-}
-
 func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	events, err := bot.ParseRequest(r)
 	if err != nil {
@@ -167,61 +162,13 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 			case *linebot.TextMessage:
 
 				question := message.Text
-				//var _ID string
-				switch {
-				case event.Source.GroupID != "":
-					//In the group
-					//_ID = event.Source.GroupID
-					if !strings.HasPrefix(message.Text, GPTName) {
-						log.Println("Group", event.Source.GroupID, "message: ", message.Text)
-						return
-					}
-
-				case event.Source.RoomID != "":
-					//In the room
-					//_ID = event.Source.RoomID
-					if !strings.HasPrefix(message.Text, GPTName) {
-						log.Println("Room", event.Source.RoomID, "message: ", message.Text)
-						return
-					}
-				case event.Source.UserID != "":
-					//In the personal chat
-					//_ID = event.Source.UserID
-				}
-
-				// decide the AI object
-				var AIObject string
-				switch {
-				case strings.HasPrefix(message.Text, GPTName):
-					AIObject = GPTName
-				default:
-					AIObject = GPTName
-				}
-				question = strings.Replace(question, AIObject, "", 1)
-
 				log.Println("Q:", question)
-
-				ctx := context.Background()
-
 				var answer string
-
-				switch AIObject {
-				case GPTName:
-					client := openai.NewClient(OpenAIApiKey)
-					// Handle the special question with image and text
-					switch {
-					case strings.HasPrefix(question, "Drawing"):
-						question = strings.Replace(question, "Drawing", "", 1)
-						answer = GetImageResponse(client, ctx, question)
-					default:
-						answer = GetResponse(client, ctx, question)
-					}
-				}
-
+				answer = GetImageResponse(question)
 				log.Println("A:", answer)
 
 				switch {
-				case strings.HasPrefix(answer, "https://") && AIObject == GPTName:
+				case strings.HasPrefix(answer, "https://"):
 					if _, err = bot.ReplyMessage(event.ReplyToken, linebot.NewImageMessage(answer, answer)).Do(); err != nil {
 						log.Print(err)
 					}

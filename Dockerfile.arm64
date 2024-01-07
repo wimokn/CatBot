@@ -16,7 +16,6 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /
 
 COPY --from=build /src/main /main
-COPY --from=build /src/.env /.env
 
 EXPOSE 80
 

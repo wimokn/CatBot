@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bot-configs
+  namespace: catbot
+data:
+  MAX_TOKENS: "4096"
+  TEMPERATURE: "0.3"
+  TOP_P: "1"
+  PRESENCE_PENALTY: "0"
+  FREQUENCY_PENALTY: "0"
+  GPT_NAME: "CatBot"
