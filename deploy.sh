@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_VERSION=1.0.5
+APP_VERSION=1.0.8
 DEPLOY_ENV=prod
 DOCKER_REPOSITORY=app/bot
 DOCKER_SERVER=registry.dreamyard.dev

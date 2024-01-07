@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -53,28 +54,25 @@ func GetImageResponse(question string) string {
 	client := photoprism.New("https://photoprism.dreamyard.dev")
 	err := client.Auth(photoprism.NewClientAuthLogin(PUser, PPass))
 	if err != nil {
-		return "The Cat Is Missing"
+		return "My cat has disappeared inside my house"
 	}
 
-	keywords := "cat & " + question
-
+	keywords := "keywords:\"cat & " + question + "\""
+	// keywords:"cat & eat"
 	options := api.PhotoOptions{
-		Count: 10,
-		//AlbumUID:
-		Filter: keywords,
+		Count:    10,
+		AlbumUID: "as6u8ib2bqx7v5wj",
+		Filter:   url.QueryEscape(keywords),
 	}
-
 	result, err := client.V1().GetPhotos(&options)
 	if err != nil {
-		return "The Cat Is Missing"
+		return "I just got a kitten and I can't find him. Where ..."
 	}
 
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
 	rnd := r1.Intn(len(result))
-
 	uuid := result[rnd].PhotoUID
-
 	// ---
 	// GetPhoto()
 	//
